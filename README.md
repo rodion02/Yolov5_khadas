@@ -1,117 +1,162 @@
 # yolov5_khadas
 
-##**Процесс установки всего необходимого для Khadas Vim3 Pro**
+# **Процесс установки всего необходимого для Khadas Vim3 Pro**
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-Прежде чем начнём, проверь версию Galcore (Драйвер общения с NPU):
+*Прежде чем начнём, проверь версию Galcore (Драйвер общения с NPU):*
 
-```dmesg | grep Galcore```
+```
+dmesg | grep Galcore
+```
 
-Зачем?
+*Зачем?*
 
-Вскоре нам понадобится устанавливать TIM-VX, и нам нужна будет соответствующая версия
+*Вскоре нам понадобится устанавливать TIM-VX, и нам нужна будет соответствующая версия*
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-На всякий случай если у нас нет Cmake:
+**На всякий случай если у нас нет Cmake:**
 
-```sudo apt-get install cmake```
+```
+sudo apt-get install cmake
+```
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-Сперва установи библиотеку OpenCV:
+*Сперва установи библиотеку OpenCV:*
 
-```sudo apt install libopencv-dev```
+```
+sudo apt install libopencv-dev
+```
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-Теперь скачаем репозитории:
+*Теперь скачаем репозитории:*
 
-1)```git clone https://github.com/OAID/Tengine | tengine-lite```
+1)
+```
+git clone https://github.com/OAID/Tengine | tengine-lite
+```
 
-2)```git clone https://github.com/VeriSilicon/TIM-VX.git```
+2)
+```
+git clone https://github.com/VeriSilicon/TIM-VX.git
+```
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-Переносим данные из TIM-VX в наш проект:
+*Переносим данные из* **TIM-VX** *в наш проект:*
 
-```cd tengine-lite```
+```
+cd tengine-lite
+```
 
-```cp -rf ../TIM-VX/include ./source/device/tim-vx/```
+```
+cp -rf ../TIM-VX/include ./source/device/tim-vx/
+```
 
-```cp -rf ../TIM-VX/src ./source/device/tim-vx/```
+```
+cp -rf ../TIM-VX/src ./source/device/tim-vx/
+```
 
-##------------------------------------------------------------
+# ------------------------------------------------------------
 
-А вот теперь займёмся моментами, связаннами с нашей версией Galcore:
+*А вот теперь займёмся моментами, связаннами с нашей версией* **Galcore**:
 
-```wget -c https://github.com/VeriSilicon/TIM-VX/releases/download/v1.1.34.fix/aarch64_A311D_6.4.8.tgz```
+```
+wget -c https://github.com/VeriSilicon/TIM-VX/releases/download/v1.1.34.fix/aarch64_A311D_6.4.8.tgz
+```
 
-У меня версия Galcore **6.4.8.7.1.1.1**, в твоём случае лучше перейди на сайт https://github.com/VeriSilicon/TIM-VX/releases
+*У меня версия Galcore* **6.4.8.7.1.1.1**, *в твоём случае лучше перейди на* [сайт](https://github.com/VeriSilicon/TIM-VX/releases) *и найди нужную тебе версию*
 
-и найди нужную тебе версию
+```
+tar zxvf aarch64_A311D_6.4.8.tgz
+```
 
-```tar zxvf aarch64_A311D_6.4.8.tgz```
+```
+mv aarch64_A311D_6.4.8 A311D
+```
 
-```mv aarch64_A311D_6.4.8 A311D```
+*Переименуем папку, чтобы с ней было легче работать, кстати* **Amlogic A311D** *это модель процессора, который стоит внутри Khadas Vim3* **Pro**, *а вот уже в Khadas Vim3* **L** *стоит процессор Amlogic S905D3, и при работе с ним естественно нужно брать* **aarch64_S905D3_6.4.8.tgz**
 
-Переименуем папку, чтобы с ней было легче работать, кстати Amlogic A311D это модель процессора, который стоит внутри Khadas Vim3 Pro,
+```
+cd tengine-lite && mkdir -p ./3rdparty/tim-vx/include
+```
 
-а вот уже в Khadas Vim 3 L стоит процессор Amlogic S905D3, и при работе с ним естественно нужно брать aarch64_S905D3_6.4.8.tgz.
-
-```cd tengine-lite && mkdir -p ./3rdparty/tim-vx/include```
-
-```cp -rf ../prebuild-sdk-s905d3/include/* ./3rdparty/tim-vx/include/```
+```
+cp -rf ../prebuild-sdk-s905d3/include/* ./3rdparty/tim-vx/include/
+```
 
 Переносим данные 3rdparty к файлам TIM-VX в нашем проекте.
 
 ##------------------------------------------------------------
 
-А теперь время компиляции:
+*А теперь время компиляции:*
 
-```cd tengine-lite```
+```
+cd tengine-lite
+```
 
-```mkdir build && cd build```
+```
+mkdir build && cd build
+```
 
-Не забываем указать Makefile-у чтобы он установил всё нужное для проектов в формате TIM-VX и также устанавливаем Convert и Quant Tools:
+*Не забываем указать Makefile-у чтобы он установил всё нужное для проектов в формате TIM-VX также уже на другом устройстве (не одноплатник Кадаса) устанавливаем Convert и Quant Tools:*
 
-```cmake -DTENGINE_ENABLE_TIM_VX=ON -DTENGINE_BUILD_CONVERT_TOOL=ON -DTENGINE_BUILD_QUANT_TOOL=ON ..```
+```
+cmake -DTENGINE_ENABLE_TIM_VX=ON..
+make -j`nproc` && make install
+```
+*(для кадаса)*
 
-```make -j`nproc` && make install```
+```
+cmake -DTENGINE_BUILD_CONVERT_TOOL=ON DTENGINE_BUILD_QUANT_TOOL=ON ..
+make -j`nproc` && make install
+```
+*(Для стороннего устройства, где вы будете квантовать веса)*
 
-##**Теперь у нас есть собранный tengine-lite проект**
+
+# **Теперь у нас есть собранный tengine-lite проект**
 
 **Как им пользоваться?**
 
-Внутри можно создать папки models и images, где будут храниться веса моделей и фотографии. Внутри build есть папка examples (рекомендую
+*Внутри можно создать папки models и images, где будут храниться веса моделей и фотографии. Внутри build есть папка examples (рекомендую запускать модели именно оттуда) и есть папка install/bin, в которой также хранятс модели и 3 важных нам файла - convert_tool, quant_tool_int8 и quant_tool_uint8, предназначенных для конвертации весов любого формата в формат .tmfile.*
 
-запускать модели именно оттуда) и есть папка install/bin, в которой также хранятс модели и 3 важных нам файла - convert_tool,
+*А это значит можно найти модель с такой же архитектурой как на С++, получить веса в любом формате, а потом их просто конвертировать.*
 
-quant_tool_int8 и quant_tool_uint8, предназначенных для конвертации весов любого формата в формат .tmfile.
+```
+./tm_convert_tool -h
+```
+*для получения информации*
 
-А это значит можно найти модель с такой же архитектурой как на С++, получить веса в любом формате, а потом их просто конвертировать.
+```
+./tm_convert_tool -f onnx -m net.onnx -o net.tmfile
+```
+*для конвертации модели*
 
-```./tm_convert_tool -h``` для получения информации
+*Подробнее [тут](https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/convert_tool.md)*
 
-```./tm_convert_tool -f onnx -m net.onnx -o net.tmfile``` для конвертации модели
+```
+./quant_tool_uint8 -h
+```
+ *для получения информации*
 
-Подробнее тут - https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/convert_tool.md
+```
+./quant_tool_uint8 -m ./net.tmfile -i ./dataset -o ./net_uint8.tmfile -g 3,224,224 -w 104.007,116.669,122.679 -s 0.017,0.017,0.017
+```
+*для квантования модели*
 
-```./quant_tool_uint8 -h``` - для получения информации
+*Подробнее* [тут](https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/quant_tool_uint8.md)
 
-```./quant_tool_uint8 -m ./net.tmfile -i ./dataset -o ./net_uint8.tmfile -g 3,224,224 -w 104.007,116.669,122.679 -s 0.017,0.017,0.017```
+# **Как только мы получили веса для нашей готовой модели, самое время её запустить:**
 
-для конвертации модели
+```
+./build/examples/net -m ./models/net_uint8.tmfile -i ./images/example.jpg -r 1 -t 1
+```
 
-Подробнее тут - https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/quant_tool_uint8.md
+**Вот и всё**
 
-##**Как только мы получили веса для нашей готовой модели, самое время её запустить:**
+[Тут](https://github.com/OAID/Tengine/blob/tengine-lite/examples/README_EN.md) *более подробная документация.*
 
-```./build/examples/net -m ./models/net_uint8.tmfile -i ./images/example.jpg -r 1 -t 1```
-
-Вот и всё.
-
-Тут более подробная документация: https://github.com/OAID/Tengine/blob/tengine-lite/examples/README_EN.md
-
-Тут гугл-диск с моделями и фотками для тренировок: https://drive.google.com/drive/folders/1hunePCa0x_R-Txv7kWqgx02uTCH3QWdS?usp=sharing
+[Тут](https://drive.google.com/drive/folders/1hunePCa0x_R-Txv7kWqgx02uTCH3QWdS?usp=sharing) *гугл-диск с моделями и фотками для тренировок.*
