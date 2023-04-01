@@ -29,6 +29,10 @@ sudo apt-get install cmake
 ```
 sudo apt install libopencv-dev
 ```
+*На стороннем устройстве (мой ноутбук) пришлось также ставить библиотеку Protobuf:*
+```
+sudo apt-get install protobuf-compiler libprotobuf-dev
+```
 
 # Шаг3
 
@@ -36,7 +40,7 @@ sudo apt install libopencv-dev
 
 1)
 ```
-git clone https://github.com/OAID/Tengine | tengine-lite
+git clone https://github.com/OAID/Tengine tengine-lite
 ```
 
 2)
@@ -85,10 +89,10 @@ cd tengine-lite && mkdir -p ./3rdparty/tim-vx/include
 ```
 
 ```
-cp -rf ../prebuild-sdk-s905d3/include/* ./3rdparty/tim-vx/include/
+cp -rf ../A311D/include/* ./3rdparty/tim-vx/include/
 ```
 
-Переносим данные 3rdparty к файлам TIM-VX в нашем проекте.
+*Переносим данные 3rdparty к файлам TIM-VX в нашем проекте.*
 
 # Шаг 6
 
@@ -111,7 +115,7 @@ make -j`nproc` && make install
 *(для кадаса)*
 
 ```
-cmake -DTENGINE_BUILD_CONVERT_TOOL=ON DTENGINE_BUILD_QUANT_TOOL=ON ..
+cmake -DTENGINE_BUILD_CONVERT_TOOL=ON -DTENGINE_BUILD_QUANT_TOOL=ON ..
 make -j`nproc` && make install
 ```
 *(Для стороннего устройства, где вы будете квантовать веса)*
@@ -126,12 +130,12 @@ make -j`nproc` && make install
 *А это значит можно найти модель с такой же архитектурой как на С++, получить веса в любом формате, а потом их просто конвертировать.*
 
 ```
-./tm_convert_tool -h
+./convert_tool -h
 ```
 *для получения информации*
 
 ```
-./tm_convert_tool -f onnx -m net.onnx -o net.tmfile
+./convert_tool -f onnx -m net.onnx -o net.tmfile
 ```
 *для конвертации модели*
 
@@ -143,7 +147,7 @@ make -j`nproc` && make install
  *для получения информации*
 
 ```
-./quant_tool_uint8 -m ./net.tmfile -i ./dataset -o ./net_uint8.tmfile -g 3,224,224 -w 104.007,116.669,122.679 -s 0.017,0.017,0.017
+./quant_tool_uint8 -m ./net.tmfile -i ./dataset -o ./net_uint8.tmfile -g 3,640,640 -w 104.007,116.669,122.679 -s 0.017,0.017,0.017
 ```
 *для квантования модели*
 
