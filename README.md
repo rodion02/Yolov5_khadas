@@ -57,7 +57,7 @@ cd tengine-lite
 ```
 
 ```
-cp -rf ../TIM-VX/include ./source/device/tim-vx/
+cp -rf ../TIM-VX/include/* ./source/device/tim-vx/include
 ```
 
 ```
@@ -90,6 +90,10 @@ cd tengine-lite && mkdir -p ./3rdparty/tim-vx/include
 
 ```
 cp -rf ../A311D/include/* ./3rdparty/tim-vx/include/
+```
+
+```
+cp -rf ../A311D/lib/*    ./3rdparty/tim-vx/lib/aarch64/
 ```
 
 *Переносим данные 3rdparty к файлам TIM-VX в нашем проекте.*
