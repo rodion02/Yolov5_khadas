@@ -1,170 +1,190 @@
-# yolov5_khadas
+<h4 style="color:Black;">Данное руководство предназначенно для работы с khadas Vim3 Pro и запуска на этой модели нейронных сетей при помощи фреймфорка</h4>
+<h1 style="text-align:center;color:Gray;">KSNN</h1>
 
-# **Процесс установки всего необходимого для Khadas Vim3 Pro**
+<h4 style="text-align:justify">Оглавление:</h4>
 
-# Шаг 1
+<h6>Запуск примера</h6>
+<h6>Работа с кастомным датасетом<h6>
+<h6>Конвертация весов</h6>
+<h6>Ускорение алгоритма</h6>
 
-*Прежде чем начнём, проверь версию Galcore (Драйвер общения с NPU):*
+<br>
 
+<h4 style="color:black;">Запуск примера</h4>
+<details open>
+<summary></summary>
+Для начала нужно установить на khadas последнюю версию ubuntu с <a href="https://docs.khadas.com/products/sbc/vim3/os-images/start">официального сайта</a>.
+Как только у нас появился образ, давайте установим все необходимые репозитории (он всего один):
+<p><a href="https://github.com/khadas/ksnn"><img src=https://media.geeksforgeeks.org/wp-content/cdn-uploads/20191120192429/Top-10-Useful-Github-Repos-That-Every-Developer-Should-Follow.png style="width:30%;height:30%;"></a></p>
+
+```sh
+$ git clone https://github.com/khadas/ksnn
 ```
-dmesg | grep Galcore
+Следуем инструкциям:
+
+```sh
+$ sudo apt install python3-pip
+$ pip3 install matplotlib
 ```
-
-*Зачем?*
-
-*Вскоре нам понадобится устанавливать TIM-VX, и нам нужна будет соответствующая версия*
-
-# Шаг 1.1
-
-**На всякий случай если у нас нет Cmake:**
-
+На данный момент актуальной является 1.4 версия, так что я поставил её
+```sh
+$ pip3 install ksnn/ksnn-1.4-py3-none-any.whl
 ```
-sudo apt-get install cmake
+В репозитории ksnn есть папка examples с примерами различных сеток, нас тут интересует yolov8n (полный путь ksnn/examples/yolov8n/). yolov8n-picture.py для одиночных изображений, а yolov8n-cap.py уже для потока видео с камеры. В папках ./libs/ и ./models/VIM3/ находятся примеры скомпилированной библиотеки - libnn_yolov8n.so и конвертированных весов оригональной модели yolov8n - yolov8n.nb.
+yolov8n-picture.py:
+```sh
+$ python3 yolov8n-picture.py --model ./models/VIM3/yolov8n.nb --library ./libs/libnn_yolov8n.so --picture ./data/horses.jpg
 ```
+yolov8n-cap.py
+```sh
+$ python3 yolov8n-cap.py --model ./models/VIM3/yolov8n.nb --library ./libs/libnn_yolov8n.so --device X
+```
+В параметр **model** мы передаем путь к .nb файлу
+В параметр **library** мы передаем путь к .so файлу
+**picture** ожидает путь к изображению, а **device** номер камеры
+</details>
 
-# Шаг 2
+<h4 style="color:black;">Работа с кастомным датасетом</h4>
+<details open>
+<summary></summary>
+Для обучения и последующей конвертации нам потребуется стороннее устройство, я лично использовал ноутбук с Ubuntu 22.04.
 
-*Сперва установи библиотеку OpenCV:*
+<h5 style="color:black;">Yolov8 Ultralitics</h5>
 
-```
-sudo apt install libopencv-dev
-```
-*На стороннем устройстве (мой ноутбук) пришлось также ставить библиотеку Protobuf:*
-```
-sudo apt-get install protobuf-compiler libprotobuf-dev
-```
+Для начала необходимо установить Yolov8:
+<p><a href="https://github.com/ultralytics/ultralytics"><img src=https://media.licdn.com/dms/image/D4D22AQE514fzn-GsXQ/feedshare-shrink_800/0/1697097434163?e=2147483647&v=beta&t=Ngp5prtlbZom-T_XHPR1T4n-7PPBQSem6WS5-wgfq7U style="width:50%;height:50%;"></a></p>
+Затем следуем инструкциям с <a href="https://docs.khadas.com/products/sbc/vim3/npu/ksnn/demos/yolov8n">официального сайта</a> и меняем по инструкции файл head.py (полный путь ultralytics/nn/modules/head.py) 
 
-# Шаг3
+42 строчка (добавляем 2 строки):
 
-*Теперь скачаем репозитории:*
-
-1)
-```
-git clone https://github.com/OAID/Tengine tengine-lite
-```
-
-2)
-```
-git clone https://github.com/VeriSilicon/TIM-VX.git
-```
-
-# Шаг 4
-
-*Переносим данные из* **TIM-VX** *в наш проект:*
-
-```
-cd tengine-lite
-```
-
-```
-cp -rf ../TIM-VX/include/* ./source/device/tim-vx/include
-```
-
-```
-cp -rf ../TIM-VX/src ./source/device/tim-vx/
-```
-
-# Шаг 5
-
-*А вот теперь займёмся моментами, связаннами с нашей версией* **Galcore**:
-
-```
-wget -c https://github.com/VeriSilicon/TIM-VX/releases/download/v1.1.34.fix/aarch64_A311D_6.4.8.tgz
+```sh
+def forward(self, x):
+    """Concatenates and returns predicted bounding boxes and class probabilities."""
+    if torch.onnx.is_in_onnx_export():
+        return self.forward_export(x)
 ```
 
-*У меня версия Galcore* **6.4.8.7.1.1.1**, *в твоём случае лучше перейди на* [сайт](https://github.com/VeriSilicon/TIM-VX/releases) *и найди нужную тебе версию*
+84 строчка (добавляем новый метод):
 
-```
-tar zxvf aarch64_A311D_6.4.8.tgz
-```
-
-```
-mv aarch64_A311D_6.4.8 A311D
-```
-
-*Переименуем папку, чтобы с ней было легче работать, кстати* **Amlogic A311D** *это модель процессора, который стоит внутри Khadas Vim3* **Pro**, *а вот уже в Khadas Vim3* **L** *стоит процессор Amlogic S905D3, и при работе с ним естественно нужно брать* **aarch64_S905D3_6.4.8.tgz**
-
-```
-cd tengine-lite && mkdir -p ./3rdparty/tim-vx/include
+```sh
+def forward_export(self, x):
+    results = []
+    for i in range(self.nl):
+        dfl = self.cv2[i](x[i]).contiguous()
+        cls = self.cv3[i](x[i]).contiguous()
+        results.append(torch.cat([cls, dfl], 1))
+    return tuple(results)
 ```
 
-```
-cp -rf ../A311D/include/* ./3rdparty/tim-vx/include/
-```
+Или можно вставить уже измененный <a href="https://github.com/rodion02/yolov5_khadas/blob/KSNN/ultralytics/head.py">файл</a>.
 
-```
-cp -rf ../A311D/lib/*    ./3rdparty/tim-vx/lib/aarch64/
-```
-
-*Переносим данные 3rdparty к файлам TIM-VX в нашем проекте.*
-
-# Шаг 6
-
-*А теперь время компиляции:*
-
-```
-cd tengine-lite
+Теперь нужно установить библиотеку Yolov8
+```sh
+pip install ultralytics
 ```
 
+Теперь начнём обучение:
+```sh
+from ultralytics import YOLO
+
+# Загружаем модель
+model = YOLO('yolov8n.pt')  # берем предобученную
 ```
-mkdir build && cd build
+Обучать можно как на GPU:
+```sh
+results = model.train(data='coco128.yaml', epochs=100, imgsz=640, batch=4, imgsz=640, device=0)
 ```
+(по умолчанию batch=16, так что если система не особо производительная, то лучше его взять меньше)
 
-*Не забываем указать Makefile-у чтобы он установил всё нужное для проектов в формате TIM-VX также уже на другом устройстве (не одноплатник Кадаса) устанавливаем Convert и Quant Tools:*
-
-```
-cmake -DTENGINE_ENABLE_TIM_VX=ON..
-make -j`nproc` && make install
-```
-*(для кадаса)*
-
-```
-cmake -DTENGINE_BUILD_CONVERT_TOOL=ON -DTENGINE_BUILD_QUANT_TOOL=ON ..
-make -j`nproc` && make install
-```
-*(Для стороннего устройства, где вы будете квантовать веса)*
-
-
-# **Теперь у нас есть собранный tengine-lite проект**
-
-**Как им пользоваться?**
-
-*Внутри можно создать папки models и images, где будут храниться веса моделей и фотографии. Внутри build есть папка examples (рекомендую запускать модели именно оттуда) и есть папка install/bin, в которой также хранятс модели и 3 важных нам файла - convert_tool, quant_tool_int8 и quant_tool_uint8, предназначенных для конвертации весов любого формата в формат .tmfile.*
-
-*А это значит можно найти модель с такой же архитектурой как на С++, получить веса в любом формате, а потом их просто конвертировать.*
-
-```
-./convert_tool -h
-```
-*для получения информации*
-
-```
-./convert_tool -f onnx -m net.onnx -o net.tmfile
-```
-*для конвертации модели*
-
-*Подробнее [тут](https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/convert_tool.md)*
-
-```
-./quant_tool_uint8 -h
-```
- *для получения информации*
-
-```
-./quant_tool_uint8 -m ./net.tmfile -i ./dataset -o ./net_uint8.tmfile -g 3,640,640 -w 104.007,116.669,122.679 -s 0.017,0.017,0.017
-```
-*для квантования модели*
-
-*Подробнее* [тут](https://github.com/OAID/Tengine/blob/tengine-lite/doc/docs_en/user_guides/quant_tool_uint8.md)
-
-# **Как только мы получили веса для нашей готовой модели, самое время её запустить:**
-
-```
-./build/examples/net -m ./models/net_uint8.tmfile -i ./images/example.jpg -r 1 -t 1
+Так и с помощью CPU:
+```sh
+results = model.train(data='coco128.yaml', epochs=100, imgsz=640)
 ```
 
-**Вот и всё**
+Более подробно всё описано <a href="https://docs.ultralytics.com/modes/train/#resuming-interrupted-trainings">тут</a>.
 
-[Тут](https://github.com/OAID/Tengine/blob/tengine-lite/examples/README_EN.md) *более подробная документация.*
+<h5 style="color:black;">Конвертация весов</h5>
+<details open>
+<summary></summary>
 
-[Тут](https://drive.google.com/drive/folders/1hunePCa0x_R-Txv7kWqgx02uTCH3QWdS?usp=sharing) *гугл-диск с моделями и фотками для тренировок.*
+После обучения мы получим .pt веса, которые нам нужно конвертировать в .onnx
+```sh
+from ultralytics import YOLO
+model = YOLO("./runs/detect/train/weights/best.pt")
+results = model.export(format="onnx")
+```
+
+Теперь по <a href="https://docs.khadas.com/products/sbc/vim3/npu/ksnn/ksnn-convert">инструкции</a> устанавливаем репозиторий:
+
+<p><a href="https://github.com/khadas/aml_npu_sdk"><img src=https://media.geeksforgeeks.org/wp-content/cdn-uploads/20191120192429/Top-10-Useful-Github-Repos-That-Every-Developer-Should-Follow.png style="width:30%;height:30%;"></a></p>
+
+```sh
+$ git clone --recursive https://github.com/khadas/aml_npu_sdk.git
+```
+Переходим в
+```sh
+$ cd aml_npu_sdk/acuity-toolkit/python
+```
+тут нас интересует convert, с помощью которого мы и будем конвертировать наши веса.
+
+Сразу подготовьте .onnx файл с весами и папку с колибрационным набором изображений для датасета (5% от всего набора, я беру не больше 100) и .txt файл, в котором будут прописаны пути к каждому изображению (.../data/image1.jpg итд)
+
+```sh
+$ ./convert \
+--model-name yolov8n \
+--platform onnx \
+--model ./yolov8n.onnx \
+--mean-values '0 0 0 0.00392156' \
+--quantized-dtype asymmetric_affine \
+--source-files ./data/dataset.txt \
+--kboard VIM3 \
+--print-level 1
+```
+**model-name** - название для выходного файла
+**platform** - формат весов (для yolo это onnx)
+**model** - путь к весам
+**mean-values** - средние значения R, G и B каналов по вашему датасету. Про то, как их вычислить можно прочитать <a href="https://kozodoi.me/blog/20210308/compute-image-stats">тут</a>, но помните что эти значения.
+**quantized-dtypes** - способы квантования (оставьте лучше тот, что в примере).
+**source-files** - путь к файлу с путями к изображениям из колибрационного датасета.
+
+В результате мы получим yolov8n.nb и yolov8n.so файлы в папке outputs (полный путь aml_npu_sdk/acuity-toolkit/python/outputs)
+
+Теперь можно запустить и посмотреть на примеры работы алгоритма с вашими данными как в самом начале.
+</details>
+</details>
+
+<h4 style="color:black;">Ускорение алгоритма</h4>
+<details open>
+<summary></summary>
+
+Основной алгоритм обрабатывает изображение за 300ms, из которых 260ms уходят на post-process. Я это ускоряю при помощи библиотеки **numba** и некоторого изменения исходного кода.
+Чтобы запустить мой алгоритм необходимо передать ему некоторые параметры:
+
+```sh
+$ python3 ./khadas_stream.py \
+--library ./yolov8n.so \
+--model ./yolov8n.nb \
+--source 0 \
+--visualize 0 \
+--conf ./data.json \
+--level 1
+```
+**library** - путь к .so библиотеке.
+**model** - путь к .nb весам.
+**source** - либо номер камеры (0, 1 итд) или ссылка на stream/ip камеру.
+**visualize** - демонмтрировать ли результат работы камеры, по умолчанию False, чтобы не тпатить на это ресурсы.
+**conf** - путь к конфигурационному файлу .json, который содержит имена классов и доп. настройки.
+data.json:
+```
+{
+    "CLASSES":["class1", "class2'...],
+    "SETTINGS":{
+        "SPAN": 1, 
+        "MAX_BOXES": 500, 
+        "OBJ_THRESH": 0.4, 
+        "NMS_THRESH": 0.5}
+}
+```
+То есть для внесения изменений вам не нужно трогать .py файл, достаточно внести изменения в .json файл.
+С файлом обязательно должен быть res.py так как при запуске алгоритм компилируется и ему нужны данные из этого Или можно вставить уже измененный <a href="https://github.com/rodion02/yolov5_khadas/blob/KSNN/yolov8n/khadas_stream.py">файл</a>.
+</details>
