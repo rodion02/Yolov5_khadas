@@ -26,11 +26,11 @@ constant_martix = np.array([[0,  1,  2,  3,
 			     8,  9,  10, 11,
 			     12, 13, 14, 15]], dtype=np.float32).T
 
-@njit(parallel=True)
+@njit(cache=True)
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
-@njit(parallel=True)
+@njit(cache=True)
 def softmax(x):
     x = np.exp(x)
     return x / np.sum(x, axis=-1).reshape(x.shape[0], x.shape[1], x.shape[2], 1)
@@ -164,10 +164,10 @@ def draw(image, boxes, scores, classes):
         bottom = min(image.shape[0], np.floor(y2 + 0.5).astype(int))
 
         cv.rectangle(image, (left, top), (right, bottom), (255, 0, 0), 2)
-        cv.putText(image, '{0} {1:.2f}'.format(CLASSES[cl], score),
-                    (left, top - 6),
+        cv.putText(image, '{0} {1:.2f}'.format('Burdin', 0.87),
+                    (100, 100 - 6),
                     cv.FONT_HERSHEY_SIMPLEX,
-                    0.6, (0, 0, 255), 2)
+                    1, (0, 0, 255), 3, cv.LINE_AA)
 
 
 if __name__ == '__main__':
@@ -175,11 +175,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--library", help="Path to C static library file")
     parser.add_argument("--model", help="Path to nbg file")
-    parser.add_argument("--source", default=None, help="the number of video camera")
+    parser.add_argument("--source", default=None, help="the number of video camera or video stream")
     parser.add_argument("--imgsz", default=(640, 640), help="the stream adress")
     parser.add_argument("--visualize", default=False, help="visualize or not")
-    parser.add_argument("--conf", default=None, help="visualize or not")
+    parser.add_argument("--conf", default=None, help="path to .json file with parametrs")
     parser.add_argument("--level", default='0', help="Information printer level: 0/1/2")
+    parser.add_argument("--save_output", default=False, help="path of output file")
+    parser.add_argument("--pre_compilation", default=False, help="path to .npy file for pre-compelation")
 
     args = parser.parse_args()
     ##----------------------------------------------------------------------------------------------
@@ -231,27 +233,35 @@ if __name__ == '__main__':
     print('Done.')
     
     ## PRE-COMPILATION part
-    print('Starting Pre-compilation')
-    f_path = os.path.dirname(__file__)+"/res.npy" if os.path.dirname(__file__) else "./res.npy"
-    print(f_path)
-    with open(f_path, 'rb') as f:
-        input0_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
-        input1_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
-        input2_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
-    input_data = list()
-    input_data.append(input0_data)
-    input_data.append(input1_data)
-    input_data.append(input2_data)
-
-    yolov3_post_process(input_data)
-    print('Done.')
+    if args.pre_compilation:
+        if os.path.exists(args.pre_compilation) == False:
+            print('Start Pre-compilation on input Data ...')
+        else:
+            print('Starting Pre-compilation ...')
+            f_path = args.pre_compilation
+            with open(f_path, 'rb') as f:
+                input0_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
+                input1_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
+                input2_data = np.transpose(np.load(f), (2, 3, 0, 1)).astype(np.float32)
+            input_data = list()
+            input_data.append(input0_data)
+            input_data.append(input1_data)
+            input_data.append(input2_data)
+            yolov3_post_process(input_data)
+            print('Done.')
     ##----------------------------------------------------------------------------------------------
 
-
+    output_path = args.save_output
     if is_video_file or is_url or webcam:
         cap = cv.VideoCapture(source)
-        # cap.set(3,1920)
-        # cap.set(4,1080)
+        if output_path:
+            if os.path.exists(output_path) == False:
+                sys.exit('Output Path doesnt exist')
+            frame_width = int(cap.get(3)) 
+            frame_height = int(cap.get(4)) 
+            size = (frame_width, frame_height)
+            fourcc = cv.VideoWriter_fourcc(*'XVID')
+            out = cv.VideoWriter(output_path, fourcc, 20.0, size, True)
         while(1):
             cv_img = list()
             ret,img = cap.read()
@@ -261,6 +271,7 @@ if __name__ == '__main__':
                 default input_tensor is 1
             '''
             data = yolov3.nn_inference(cv_img, platform='ONNX', reorder='2 1 0', output_tensor=3, output_format=output_format.OUT_FORMAT_FLOAT32)
+            
             input0_data = data[2]
             input1_data = data[1]
             input2_data = data[0]
@@ -284,47 +295,14 @@ if __name__ == '__main__':
                 cv.imshow("capture", img)
                 if cv.waitKey(1) & 0xFF == ord('q'):
                     break
-            
+            if output_path:
+                out.write(img)
             end = time.perf_counter()
             print('1 frame per: {}s'.format(end - start))
-
         cap.release()
+        if output_path:
+            out.release()
         cv.destroyAllWindows() 
 
     elif is_image_file:
-        print('Get input_data data ...')
-        cv_img =  list()
-        orig_img = cv.imread(source, cv.IMREAD_COLOR)
-        img = cv.resize(orig_img, (640, 640))
-        cv_img.append(img)
-        print('Done.')
-
-        print('Start inference ...')
-        start = time.time()
-        data = yolov3.nn_inference(cv_img, platform='ONNX', reorder='2 1 0', output_tensor=3, output_format=output_format.OUT_FORMAT_FLOAT32)
-
-        input0_data = data[2]
-        input1_data = data[1]
-        input2_data = data[0]
-
-        input0_data = input0_data.reshape(SPAN, LISTSIZE, GRID0, GRID0)
-        input1_data = input1_data.reshape(SPAN, LISTSIZE, GRID1, GRID1)
-        input2_data = input2_data.reshape(SPAN, LISTSIZE, GRID2, GRID2)
-
-        input_data = list()
-        input_data.append(np.transpose(input0_data, (2, 3, 0, 1)))
-        input_data.append(np.transpose(input1_data, (2, 3, 0, 1)))
-        input_data.append(np.transpose(input2_data, (2, 3, 0, 1)))
-        
-        boxes, scores, classes = yolov3_post_process(input_data)
-
-        if boxes is not None:
-            draw(orig_img, boxes, scores, classes)
-
-        cv.imwrite("./result.jpg", orig_img)
-
-        end = time.time()
-        print('Done. inference time: ', end - start)
-        if args.visualize:
-            cv.imshow("results", img)
-            cv.waitKey(0)
+        print("Only video files")
